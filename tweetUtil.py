@@ -2,6 +2,7 @@ import requests
 import os
 from tweet import Tweet
 
+
 # Get bearer token
 def get_bearer_token(session):
     key = os.environ['TWITTER_KEY']

@@ -12,9 +12,6 @@ from tweet import Tweet
 from tweetHistory import TweetHistory
 
 
-twitter_key = "ly00p5JK6Moh4SEr093HPQ1T5"
-twitter_secret = "sqJbmi1RKkNjMKuA8X1nnKmAyVAsBzJAXrbCPOWDdw9cOhoNrm"
-
 # Setup retry strategy
 session = requests.Session()
 retries = Retry(total=5,
@@ -26,8 +23,8 @@ session.mount('https://', HTTPAdapter(max_retries=retries))
 bearer = get_bearer_token(session)
 
 user = 'wgmiio'
-user_id = get_user_id(user, bearer, session)
-tweet_list = TweetHistory(get_tweets_for_user(user_id, bearer, session))
+
+tweet_list = TweetHistory(user, bearer, session)
 
 tweet_list.print_summary()
 tweet_list.print_top_tweets()

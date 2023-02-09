@@ -1,10 +1,14 @@
 import csv
 from datetime import datetime
-
+from tweetUtil import get_user_id, get_tweets_for_user
 
 class TweetHistory:
-    def __init__(self, tweet_list=None):
-        self.tweet_list = tweet_list
+    def __init__(self, user, bearer, session):
+        self.session = session
+        self.bearer = bearer
+        self.user = user
+        self.user_id = get_user_id(self.user, self.bearer, self.session)
+        self.tweet_list = self.get_tweet_list()
         self.average_impressions = self.calculate_average_impressions()
         self.average_retweets = sum([tweet.retweet_count for tweet in self.tweet_list]) / len(self.tweet_list)
         self.average_replies = sum([tweet.reply_count for tweet in self.tweet_list]) / len(self.tweet_list)
@@ -16,7 +20,9 @@ class TweetHistory:
         self.find_oldest_tweet()
         self.find_newest_tweet()
         self.posts_per_day = self.total_posts / (self.last_post - self.first_post).days
-        self.user = self.tweet_list[0].user_id
+
+    def get_tweet_list(self):
+        return get_tweets_for_user(self.user_id, self.bearer, self.session)
 
     def write_to_csv(self, filename):
         with open(filename, 'w', newline='', encoding='utf-8') as f:
