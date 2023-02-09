@@ -1,14 +1,23 @@
 import csv
 from datetime import datetime
-from tweetUtil import get_user_id, get_tweets_for_user
+from tweet import Tweet
+import os
+from pprint import pprint
+
 
 class TweetHistory:
-    def __init__(self, user, bearer, session):
+    def __init__(self, user, session):
         self.session = session
-        self.bearer = bearer
+        self.bearer = None
+        self.get_bearer_token()
+
         self.user = user
-        self.user_id = get_user_id(self.user, self.bearer, self.session)
-        self.tweet_list = self.get_tweet_list()
+        self.user_id = None
+        self.get_user_id()
+
+        self.tweet_list = []
+        self.get_tweets_for_user()
+
         self.average_impressions = self.calculate_average_impressions()
         self.average_retweets = sum([tweet.retweet_count for tweet in self.tweet_list]) / len(self.tweet_list)
         self.average_replies = sum([tweet.reply_count for tweet in self.tweet_list]) / len(self.tweet_list)
@@ -20,9 +29,6 @@ class TweetHistory:
         self.find_oldest_tweet()
         self.find_newest_tweet()
         self.posts_per_day = self.total_posts / (self.last_post - self.first_post).days
-
-    def get_tweet_list(self):
-        return get_tweets_for_user(self.user_id, self.bearer, self.session)
 
     def write_to_csv(self, filename):
         with open(filename, 'w', newline='', encoding='utf-8') as f:
@@ -95,3 +101,64 @@ class TweetHistory:
             'tweets': [tweet.to_json() for tweet in self.tweet_list]
         }
         return json
+
+    def get_user_id(self):
+        response = self.session.get(
+            f"https://api.twitter.com/2/users/by/username/{self.user}",
+            headers={"Authorization": f"Bearer {self.bearer}"})
+
+        if response.status_code != 200:
+            raise Exception(f"Cannot get user id for {self.user} (HTTP %d): %s" % (response.status_code, response.text))
+
+        self.user_id = response.json()["data"]["id"]
+
+    def get_tweets_for_user(self):
+        url = f"https://api.twitter.com/2/users/{self.user_id}/tweets?max_results=100&tweet.fields=public_metrics,created_at"
+        headers = {"Authorization": f"Bearer {self.bearer}"}
+
+        continue_request = True
+        while continue_request:
+            response = self.session.get(url, headers=headers)
+            if response.status_code != 200:
+                raise Exception(
+                    f"Cannot get tweets for user {self.user_id} (HTTP %d): %s" % (response.status_code, response.text))
+
+            data = response.json()
+            for tweet in data["data"]:
+                if tweet['text'].startswith('RT'):
+                    continue
+                else:
+                    new_tweet = Tweet(
+                        tweet['id'],
+                        tweet['text'],
+                        tweet['created_at'],
+                        tweet['public_metrics']['impression_count'],
+                        tweet['public_metrics']['retweet_count'],
+                        tweet['public_metrics']['reply_count'],
+                        tweet['public_metrics']['like_count'],
+                        tweet['public_metrics']['quote_count'],
+                        self.user_id
+                    )
+                    self.tweet_list.append(new_tweet)
+            try:
+                url = f"https://api.twitter.com/2/users/{self.user_id}/tweets?max_results=100&tweet.fields=public_metrics,created_at&pagination_token={data['meta']['next_token']}"
+            except KeyError:
+                print('No more tweets')
+                pprint(data)
+                continue_request = False
+
+    def get_bearer_token(self):
+        key = os.environ['TWITTER_KEY']
+        secret = os.environ['TWITTER_SECRET']
+
+        response = self.session.post(
+            "https://api.twitter.com/oauth2/token",
+            auth=(key, secret),
+            data={"grant_type": "client_credentials"},
+            headers={"User-Agent": "TwitterDevSampledStreamQuickStartPython"})
+
+        if response.status_code != 200:
+            raise Exception(f"Cannot get a Bearer token (HTTP %d): %s" % (response.status_code, response.text))
+
+        body = response.json()
+        self.bearer = body["access_token"]
