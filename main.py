@@ -3,7 +3,6 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 from tweetHistory import TweetHistory
 
-
 # Setup retry strategy
 session = requests.Session()
 retries = Retry(total=5,
@@ -11,10 +10,22 @@ retries = Retry(total=5,
                 status_forcelist=[500, 502, 503, 504])
 session.mount('https://', HTTPAdapter(max_retries=retries))
 
+twitter_list = ['artblocks_io', 'memeland', 'pudgypenguins', 'CryptoDickbutts', 'goblintown',
+                'ChimpersNFT', 'wolfdotgame', 'huxleysaga', 'DigiDaigaku',
+                'LuckyNFTNews', 'GutterCatGang', 'OthersideMeta', 'yugalabs', 'BoredApeYC',
+                "tylerxhobbs", "ArtOnBlockchain", "zancan", "RTFKT", "apecoin", "CryptoGarga",
+                "GordonGoner", "veefriends", "proof_xyz", "AzukiOfficial",
+                "cryptopunksnfts", "coolcats", "doodles", "6529collections", "frankdegods",
+                "DeezeFi"
+                ]
 
-user = 'chilearmy123'
+summary_list = []
+for user in twitter_list:
+    print("Getting tweets for: " + user)
+    tweet_list = TweetHistory(user, session)
+    summary_list.append(tweet_list.get_summary())
 
-tweet_list = TweetHistory(user, session)
-
-tweet_list.print_summary()
-tweet_list.print_top_tweets()
+summary_list = sorted(summary_list, key=lambda x: float(x['average_impressions']), reverse=True)
+print("Summary:")
+for summary in summary_list:
+    print(summary['user'] + ": " + str(summary['average_impressions']))
